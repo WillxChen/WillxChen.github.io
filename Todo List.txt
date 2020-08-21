@@ -1,0 +1,8 @@
+Wake Up Clock Project:
+
+Change colors once every hour.
+	Gradually change colors minute by minute.
+	Gradient transition most likely?
+
+Add in user input for location.
+Globe animation.

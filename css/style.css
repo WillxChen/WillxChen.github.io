@@ -1,0 +1,21 @@
+body {
+    font-size: 1.5rem;
+    font-family: Roboto;
+    color: white;
+}
+
+.clock {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 95vh;
+}
+
+nav {
+    position: absolute; 
+    text-align: center;
+    left:0;
+    right:0;
+    bottom: 0;
+}
