@@ -1,10 +1,7 @@
 const clock = {
     getTime() {
-        const currentTimeUnix = Date.now();
-        const currentTime = new Date(currentTimeUnix);
-        return currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     },
-
     initialize() {
         domHandler.updateTime();
         const periodicallyUpdateTime = new Promise((resolve) => {
@@ -19,29 +16,28 @@ const clock = {
     }
 }
 
-const weather = {
-    weatherConditions: ['sun', 'clear', 'partly cloudy', 'cloud', 'rain', 'storm', 'snow', 'fog'],
-    determineCondition(shortForecast) {
-        let updatedCondition;
-        shortForecast = shortForecast.toLowerCase();
-        //Loop through weatherCondition file names to match current forecast
-        for (let i = 0; i<this.weatherConditions.length; i++) {
-            if (shortForecast.includes(this.weatherConditions[i])) {
-                updatedCondition = this.weatherConditions[i];
-                break;
-            } 
+const getWeatherConditions = (shortForecast) => {
+    const weatherConditions = ['sun', 'clear', 'partly cloudy', 'cloud', 'shower', 'storm', 'snow', 'fog'];
+    let updatedCondition;
+
+    shortForecast = shortForecast.toLowerCase();
+    //Loop through weatherCondition file names to match current forecast
+    for (let i = 0; i < weatherConditions.length; i++) {
+        if (shortForecast.includes(weatherConditions[i])) {
+            updatedCondition = weatherConditions[i];
+            break;
         }
+    }
         return updatedCondition;
-    },
 }
+    
 
 const domHandler = {
     loadRandomBackground() {
         colors = ['#0099cc', '#ff8c8c', '#D9D92B', '#a5ed5e',
                 '#57d998', '#99ccff', '#c68cff', '#ff8cc6'];
         const body = document.querySelector("body");
-        const randomNum = Math.floor(Math.random() * 8);
-        body.style.backgroundColor = colors[randomNum];
+        body.style.backgroundColor = colors[Math.floor(Math.random() * 8)];
     },
     updateTime() {
         const h1 = document.querySelector("h1");
@@ -81,31 +77,28 @@ const retrieveWeatherAPI = (data) => {
     .then((response) => {
         if (!response.ok)
             throw new Error(`Status Code Error: ${response.status}`);
-        response.json()
-        .then((data) => {
-            const { city, state } = data.properties.relativeLocation.properties;
-            domHandler.updateUserLocation(city,state);
-        
-        })
+        return response.json();
     })
+    .then((data) => {
+        const { city, state } = data.properties.relativeLocation.properties;
+        domHandler.updateUserLocation(city,state);
+        })
 
     const getWeatherData = fetch(url2)
     .then((response) => {
         if (!response.ok)
             throw new Error(`Status Code Error: ${response.status}`);
-
-        response.json()
-        .then((data) => {
-            const { temperature, temperatureUnit, shortForecast } = data.properties.periods[0];
-            domHandler.updateTempData(temperature, temperatureUnit);
-            const updatedForecast = weather.determineCondition(shortForecast);
-            domHandler.updateWeatherIcon(updatedForecast);
-        });
-        
-        })
-        .catch((err) => {
-            console.log('Error with Fetch')
-            console.log(err);
+        return response.json()
+    })
+    .then((data) => {
+        const { temperature, temperatureUnit, shortForecast } = data.properties.periods[0];
+        domHandler.updateTempData(temperature, temperatureUnit);
+        const updatedForecast = getWeatherConditions(shortForecast);
+        domHandler.updateWeatherIcon(updatedForecast);
+    })
+    .catch((err) => {
+        console.log('Error with Fetch')
+        console.log(err);
     })
 }
 
