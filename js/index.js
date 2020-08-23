@@ -1,40 +1,23 @@
+const weatherConditions = ['sun', 'clear', 'partly cloudy', 'cloud', 'shower', 'storm', 'snow', 'fog'];
+
 const clock = {
     getTime() {
         return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     },
-    initialize() {
-        domHandler.updateTime();
-        const periodicallyUpdateTime = new Promise((resolve) => {
-            setTimeout(() => {
-                domHandler.updateTime();
-                resolve();
-            }, 60000);
-        })
-        .then(() => {
-            this.initialize();
-        });
-    }
+    initialize(onTimer) {
+        onTimer()
+        setInterval(() => onTimer(), 60000);
+    },
 }
 
 const getWeatherConditions = (shortForecast) => {
-    const weatherConditions = ['sun', 'clear', 'partly cloudy', 'cloud', 'shower', 'storm', 'snow', 'fog'];
-    let updatedCondition;
-
-    shortForecast = shortForecast.toLowerCase();
-    //Loop through weatherCondition file names to match current forecast
-    for (let i = 0; i < weatherConditions.length; i++) {
-        if (shortForecast.includes(weatherConditions[i])) {
-            updatedCondition = weatherConditions[i];
-            break;
-        }
-    }
-        return updatedCondition;
+    const shortForecastAsLowercase = shortForecast.toLowerCase();
+    return weatherConditions.find(weatherCondition => shortForecastAsLowercase.includes(weatherCondition));
 }
-    
 
 const domHandler = {
     loadRandomBackground() {
-        colors = ['#0099cc', '#ff8c8c', '#D9D92B', '#a5ed5e',
+        const colors = ['#0099cc', '#ff8c8c', '#D9D92B', '#a5ed5e',
                 '#57d998', '#99ccff', '#c68cff', '#ff8cc6'];
         const body = document.querySelector("body");
         body.style.backgroundColor = colors[Math.floor(Math.random() * 8)];
@@ -55,69 +38,82 @@ const domHandler = {
         const weatherIcon = document.querySelector(".weather-icon");
         weatherIcon.src = `public/weather/${updatedForecast}.png`;
     },
+    clearMain() {
+        const main = document.querySelector("#app");
+        main.innerHTML = "";
+    },
 }
 
-const retrieveUserLocation = () => {
-    return new Promise((resolve, reject) => {
-        if ('geolocation' in navigator) {
-            resolve();
-        } else {
-            reject();
-        }
-    });
-}
-
-const retrieveWeatherAPI = (data) => {
-    const {latitude, longitude} = data;
-    const url1 = `https://api.weather.gov/points/${latitude},${longitude}`;
-    const url2 = `https://api.weather.gov/points/${latitude},${longitude}/forecast/hourly`;
-    console.log(url2);
-
-    const getCityAndState = fetch(url1)
+const retrieveCityAndStateAPI = (positionalData) => {
+    const { latitude, longitude } = positionalData;
+    const url = `https://api.weather.gov/points/${latitude},${longitude}`;
+    console.log(url);
+    return fetch(url)
     .then((response) => {
         if (!response.ok)
             throw new Error(`Status Code Error: ${response.status}`);
         return response.json();
     })
-    .then((data) => {
-        const { city, state } = data.properties.relativeLocation.properties;
-        domHandler.updateUserLocation(city,state);
-        })
+};
 
-    const getWeatherData = fetch(url2)
+const retrieveWeatherAPI = (positionalData) => {
+    const { latitude, longitude } = positionalData;
+    const url = `https://api.weather.gov/points/${latitude},${longitude}/forecast/hourly`;
+    return fetch(url)
     .then((response) => {
         if (!response.ok)
             throw new Error(`Status Code Error: ${response.status}`);
         return response.json()
     })
-    .then((data) => {
-        const { temperature, temperatureUnit, shortForecast } = data.properties.periods[0];
-        domHandler.updateTempData(temperature, temperatureUnit);
-        const updatedForecast = getWeatherConditions(shortForecast);
-        domHandler.updateWeatherIcon(updatedForecast);
-    })
-    .catch((err) => {
-        console.log('Error with Fetch')
-        console.log(err);
+};
+
+const getCurrentPosition = () => {
+    return new Promise((resolve, reject) => {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(position => resolve(position))
+        } else {
+            reject()
+        }
     })
 }
 
-retrieveUserLocation()
-    .then(() => {
-        navigator.geolocation.getCurrentPosition((position) => {
-            console.log(`Coordinates retrieved: ${position.coords.latitude},${position.coords.longitude}`);
+const updateCityAndState = cityAndStateData => {
+    const { city, state } = cityAndStateData.properties.relativeLocation.properties;
+    domHandler.updateUserLocation(city, state);
+}
 
-            const data = { latitude: position.coords.latitude, longitude: position.coords.longitude };
-            retrieveWeatherAPI(data);
-        });
+const updateTemperatureAndForecast = weatherData => {
+    const { temperature, temperatureUnit, shortForecast } = weatherData.properties.periods[0];
+    domHandler.updateTempData(temperature, temperatureUnit);
+    const updatedForecast = getWeatherConditions(shortForecast);
+    domHandler.updateWeatherIcon(updatedForecast);
+}
+    
+
+getCurrentPosition()
+    .then(position => {
+        console.log(`Coordinates retrieved: ${position.coords.latitude},${position.coords.longitude}`);
+        const positionCoords = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        return positionCoords
     })
-    .catch(() => {
-        console.log('Failed to retrieve geolocation data.');
+    .then(positionCoords => {
+        return Promise.all([retrieveCityAndStateAPI(positionCoords), retrieveWeatherAPI(positionCoords)])
+    })
+    .then(values => {
+        const [cityAndStateData, weatherData] = values;
+        updateCityAndState(cityAndStateData);
+        updateTemperatureAndForecast(weatherData);
+    })
+    .catch((error) => {
+        console.log(error);
     });
 
-
-
-
 domHandler.loadRandomBackground();
-clock.initialize();
+clock.initialize(domHandler.updateTime);
 
+const newPage = () => {
+    const loadPage = () => {
+        domHandler.clearMain();
+    }
+    return { loadPage }
+}
